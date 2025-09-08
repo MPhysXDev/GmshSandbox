@@ -100,20 +100,50 @@ num_x = 5          # replication count in x
 num_y = 5          # replication count in y
 mesh_h = 1e-4
 
+
 gmsh.initialize()
 
 gmsh.model.add(model_name)
 
+list_of_rectangles_b = []
+list_of_rectangles_w = []
+list_of_disks = []
 for i in range(num_x):
     for j in range(num_y):
         x0 = (2*i - num_x)*rect_x
         y0 = (2*j-num_y)*rect_y
         rectangles, disks = unit_cell(x0, y0, rect_x, rect_y, circle_r)
+        list_of_rectangles_b += [rectangles[0][0][1]]
+        list_of_rectangles_w += [rectangles[1][0][1]]
+        list_of_rectangles_w += [rectangles[2][0][1]]
+        list_of_rectangles_b += [rectangles[3][0][1]]
+        list_of_disks += [disks[0][0][1]]
+        list_of_disks += [disks[1][0][1]]
+        list_of_disks += [disks[1][1][1]]
+        list_of_disks += [disks[2][0][1]]
+        list_of_disks += [disks[3][0][1]]
+        list_of_disks += [disks[3][1][1]]
+        list_of_disks += [disks[4][0][1]]
+        list_of_disks += [disks[4][1][1]]
+        list_of_disks += [disks[4][2][1]]
+        list_of_disks += [disks[4][3][1]]
+        list_of_disks += [disks[5][0][1]]
+        list_of_disks += [disks[5][1][1]]
+        list_of_disks += [disks[6][0][1]]
+        list_of_disks += [disks[7][0][1]]
+        list_of_disks += [disks[7][1][1]]
+        list_of_disks += [disks[8][0][1]]
         # You can store or process the returned rectangles and disks as needed
 
 gmsh.model.occ.removeAllDuplicates()
 
 gmsh.model.occ.synchronize()
+
+gmsh.model.addPhysicalGroup(2, list_of_rectangles_b, tag=1, name="rectangles_b")
+gmsh.model.addPhysicalGroup(2, list_of_rectangles_w, tag=2, name="rectangles_w")
+gmsh.model.addPhysicalGroup(2, list_of_disks, tag=3, name="disks")
+
+
 # gmsh.model.mesh.generate()
 
 # Display the unit cell
