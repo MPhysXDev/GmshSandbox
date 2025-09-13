@@ -144,15 +144,26 @@ num_y = 5          # replication count in y
 rect_x = 0.003      # rectangle dimension along x
 rect_y = 0.003      # rectangle dimension along y
 circle_r = 0.0005   # disk radius
-mesh_h = 1e-4
+mesh_h0 = 1e-4
 substrate_thickness = 0.01
+source_distance = 0.06
+absorber_distance = 0.06
 
 # Initialize Gmsh and create the model
 gmsh.initialize()
 gmsh.model.add(model_name)
 
 # Generate the supercell
-list_of_rectangles_b, list_of_rectangles_w, list_of_disks = supercell(num_x, num_y, rect_x, rect_y, circle_r, mesh_h)
+list_of_rectangles_b, list_of_rectangles_w, list_of_disks = supercell(num_x, num_y, rect_x, rect_y, circle_r, mesh_h0)
+
+# Generate the substrate as a box
+substrate = gmsh.model.occ.addBox(-num_x*rect_x, -num_y*rect_y, -substrate_thickness, 2*num_x*rect_x, 2*num_y*rect_y, substrate_thickness)
+
+# Generate the first vacuum layer above the metasurface and surface current plane
+vacuum_layer0 = gmsh.model.occ.addBox(-num_x*rect_x, -num_y*rect_y, 0, 2*num_x*rect_x, 2*num_y*rect_y, source_distance)
+
+# Generate the second vacuum layer above the first vacuum layer and absorber plane
+vacuum_layer1 = gmsh.model.occ.addBox(-num_x*rect_x, -num_y*rect_y, source_distance, 2*num_x*rect_x, 2*num_y*rect_y, absorber_distance)
 
 # Remove duplicates
 gmsh.model.occ.removeAllDuplicates()
@@ -165,9 +176,15 @@ gmsh.model.addPhysicalGroup(2, list_of_rectangles_b, tag=1, name="rectangles_b")
 gmsh.model.addPhysicalGroup(2, list_of_rectangles_w, tag=2, name="rectangles_w")
 gmsh.model.addPhysicalGroup(2, list_of_disks, tag=3, name="disks")
 
+# Set 2D meshing algorithm - 6 is frontal-Delaunay
+gmsh.option.setNumber("Mesh.Algorithm", 6)
+# Set 3D meshing algorithm - 4 is frontal
+gmsh.option.setNumber("Mesh.Algorithm3D", 4)
+
+# Generate the mesh
+gmsh.model.mesh.generate()
+
 # Display the generated metasurface
 gmsh.fltk.run()
-
-# gmsh.model.mesh.generate()
 
 gmsh.finalize()
