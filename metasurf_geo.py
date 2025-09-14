@@ -98,8 +98,8 @@ def sub_unit_cell(
     # List of edges
     front = [l0, l8, l9, l2]
     right = [l3, l10, l11, l4]
-    back = [l6, -l13, -l12, -l5]
-    left = [-l1, -l15, -l14, -l7]
+    back = [l7, -l13, -l12, -l5]
+    left = [-l1, -l15, -l14, -l6]
     edges = [front, right, back, left]
 
     # List of corner points
