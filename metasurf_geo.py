@@ -4,7 +4,10 @@
 """
 This script creates a chequerboard metasurface unit cell,
 and then a supercell by replicating the unit cell in x and y directions.
-We use the native Gmsh kernel.
+The metasurface supercell is defined at the top surface of a substrate
+of given thickness, with a source plane at a certain distance above the metasurface.
+We use the native Gmsh kernel for the geometry definition.
+A 3D mesh is generated for full-wave electromagnetic simulations.
 """
 
 # Import necessary modules
@@ -97,8 +100,8 @@ def sub_unit_cell(
 
     return [surfaces , bottom, right, top, left]
 
-# Function to create a sub-unit cell with one rectangle and 
-# arc-circle cutouts at each corner
+# Function to create a unit cell with four rectangle and 
+# arc-circle cutouts at each inner and outer vertices
 def unit_cell(
         x0, # Bottom left corner x-coordinate
         y0, # Bottom left corner y-coordinate
@@ -143,6 +146,7 @@ def unit_cell(
 
     return [black_rectangles, white_rectangles, c, bottom, right, top, left]
 
+# Function to create a full period of the metasurface by replicating the unit cell
 def period(
         wx, # Width of the rectangles
         wy, # Height of the rectangles
@@ -153,15 +157,65 @@ def period(
         nx, # replication count in x
         ny  # replication count in y
     ):
-    # Iterate over the number of replications in x and y
+    # Lists to store the different parts of the metasurface
     black = []
     white = []
-    for i in range(nx):
-        for j in range(ny):
+    corners = []
+    x0_edge = []
+    x1_edge = []
+    y0_edge = []
+    y1_edge = []
+    inner_array = []
+    # Iterate over the number of replications in y and x 
+    for j in range(ny):
+        for i in range(nx):
             # Create the unit cell at the appropriate position
             out = unit_cell((2*i - nx) * wx, (2*j - ny) * wy, wx, wy, r, hx, hy, hc)
+            # Assemble lists corresponding to the different parts of the metasurface
+            # **********************************************************************
+            # chequerboard rectangles
             black += out[0]
             white += out[1]
+            # corner cutouts
+            if ((i == 0) and (j == 0)):
+                corners += out[2][0][0]
+            if ((i == nx-1) and (j == 0)):
+                corners += out[2][0][2]
+            if ((i == 0) and (j == ny-1)):
+                corners += out[2][2][0]
+            if ((i == nx-1) and (j == ny-1)):
+                corners += out[2][2][2]
+            # x edge cutouts
+            if (j == 0):
+                if (i != 0):
+                    x0_edge[-1] += out[2][0][0]
+                x0_edge.append(out[2][0][1])
+                if (i != nx-1):
+                    x0_edge.append(out[2][0][2])
+            if (j == ny-1):
+                if (i != 0):
+                    x1_edge[-1] += out[2][2][0]
+                x1_edge.append(out[2][2][1])
+                if (i != nx-1):
+                    x1_edge.append(out[2][2][2])
+            # y edge cutouts
+            if (i == 0):
+                if (j != 0):
+                    y0_edge[-1] += out[2][0][0]
+                y0_edge.append(out[2][1][0])
+                if (j != ny-1):
+                    y0_edge.append(out[2][2][0])
+            if (i == nx-1):
+                if (j != 0):
+                    y1_edge[-1] += out[2][0][2]
+                y1_edge.append(out[2][1][2])
+                if (j != ny-1):
+                    y1_edge.append(out[2][2][2])
+            # inner array cutouts
+    x_edge =[a + b for a, b in zip(x0_edge, x1_edge)]
+    y_edge =[a + b for a, b in zip(y0_edge, y1_edge)]
+
+    return black, white, corners, x_edge, y_edge, inner_array
 
 
 # Configuration parameters
@@ -182,13 +236,25 @@ absorber_distance = 0.06
 gmsh.initialize()
 gmsh.model.add(model_name)
 
-# Generate the periodic structure
-period(rect_x, rect_y, circle_r, hx, hy, hc, num_x, num_y)
+# Generate on period of the metasurface geometry 
+black, white, corners, x_edge, y_edge, inner_array = period(rect_x, rect_y, circle_r, hx, hy, hc, num_x, num_y)
+
+# Synchronize the CAD kernel with the Gmsh model
+gmsh.model.geo.synchronize()
 
 # Remove duplicate entities
 gmsh.model.geo.removeAllDuplicates()
 
-gmsh.model.geo.synchronize()
+# Define physical groups for the metasurface components
+gmsh.model.addPhysicalGroup(2, black, tag=1, name="black_rectangles")
+gmsh.model.addPhysicalGroup(2, white, tag=2, name="white_rectangles")
+gmsh.model.addPhysicalGroup(2, corners, tag=10, name="corners")
+for i, cut in enumerate(x_edge): 
+    gmsh.model.addPhysicalGroup(2, cut, tag=100+i, name=f"x_cut_{i}")
+for i, cut in enumerate(y_edge): 
+    gmsh.model.addPhysicalGroup(2, cut, tag=200+i, name=f"y_cut_{i}")
+for i, cut in enumerate(inner_array):
+    gmsh.model.addPhysicalGroup(2, cut, tag=1000+i, name=f"inner_cut_{i}")
 
 # Display the generated metasurface
 gmsh.fltk.run()
