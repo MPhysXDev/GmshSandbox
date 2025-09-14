@@ -212,6 +212,7 @@ def period(
                 if (j != ny-1):
                     y1_edge.append(out[2][2][2])
             # inner array cutouts
+            inner_array.append(out[2][1][1])
     x_edge =[a + b for a, b in zip(x0_edge, x1_edge)]
     y_edge =[a + b for a, b in zip(y0_edge, y1_edge)]
 
