@@ -139,15 +139,15 @@ def unit_cell(
     c = [cb, cm, ct]
 
     # arrays of edges in the unit cell
-    bottom = np.array(lower_left[1] + lower_right[1], dtype=int)
-    right = np.array(lower_right[2] + upper_right[2], dtype=int)
-    top = np.array(upper_left[3] + upper_right[3], dtype=int)
-    left = np.array(lower_left[4] + upper_left[4], dtype=int)
+    bottom = lower_left[1] + lower_right[1]
+    right = lower_right[2] + upper_right[2]
+    top = upper_left[3] + upper_right[3]
+    left = lower_left[4] + upper_left[4]
 
     return [black_rectangles, white_rectangles, c, bottom, right, top, left]
 
 # Function to create a full period of the metasurface by replicating the unit cell
-def period(
+def meta_period(
         wx, # Width of the rectangles
         wy, # Height of the rectangles
         r,  # Radius of the circular regions
@@ -254,7 +254,7 @@ gmsh.initialize()
 gmsh.model.add(model_name)
 
 # Generate on period of the metasurface geometry 
-black, white, corners, x_edge, y_edge, inner_array = period(rect_x, rect_y, circle_r, hx, hy, hc, num_x, num_y)
+black, white, corners, x_edge, y_edge, inner_array = meta_period(rect_x, rect_y, circle_r, hx, hy, hc, num_x, num_y)
 
 # Synchronize the CAD kernel with the Gmsh model
 gmsh.model.geo.synchronize()
