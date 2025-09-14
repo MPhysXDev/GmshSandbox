@@ -166,6 +166,9 @@ def period(
     y0_edge = []
     y1_edge = []
     inner_array = []
+    # Global node accumulator for quarter-circle surfaces per lattice node
+    # Grid of size (2*ny + 1) x (2*nx + 1): each tile contributes to a 3x3 block
+    inner_nodes = [[[] for _ in range(2*nx + 1)] for _ in range(2*ny + 1)]
     # Iterate over the number of replications in y and x 
     for j in range(ny):
         for i in range(nx):
@@ -211,10 +214,23 @@ def period(
                 y1_edge.append(out[2][1][2])
                 if (j != ny-1):
                     y1_edge.append(out[2][2][2])
-            # inner array cutouts
-            inner_array.append(out[2][1][1])
+            # Accumulate all 3x3 cutout clusters from this tile into the global node grid
+            # out[2] is a 3x3 array of lists: rows cb, cm, ct and columns left, center, right
+            for rr in range(3):
+                for cc in range(3):
+                    cells = out[2][rr][cc]
+                    if cells:
+                        inner_nodes[2*j + rr][2*i + cc] += cells
     x_edge =[a + b for a, b in zip(x0_edge, x1_edge)]
     y_edge =[a + b for a, b in zip(y0_edge, y1_edge)]
+
+    # Collect all interior node cuts (exclude outer boundary nodes)
+    # Order: left-to-right within each row, bottom-to-top across rows
+    for jn in range(1, 2*ny):
+        for in_idx in range(1, 2*nx):
+            cuts = inner_nodes[jn][in_idx]
+            if cuts:
+                inner_array.append(cuts)
 
     return black, white, corners, x_edge, y_edge, inner_array
 
