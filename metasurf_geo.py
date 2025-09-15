@@ -280,8 +280,8 @@ def meta_model(
         hb, # Mesh size at bottom rectangle corner points
         nx, # Number of rectangles in x direction
         ny, # Number of rectangles in y direction
-        subst_t # Substrate thickness
-        source_distance # Distance from metasurface to source plane
+        subst_t, # Substrate thickness
+        source_distance, # Distance from metasurface to source plane
         absorber_distance # Distance from metasurface to absorber plane
     ):
 
@@ -350,6 +350,8 @@ def meta_model(
     # ***********************************************
     z_min = 0
     z_max = source_distance
+
+    # Create the source plane
     p_vac1_fl = gmsh.model.geo.addPoint(x_min, y_min, z_max, hb)
     p_vac1_fr = gmsh.model.geo.addPoint(x_max, y_min, z_max, hb)
     p_vac1_br = gmsh.model.geo.addPoint(x_max, y_max, z_max, hb)
@@ -363,8 +365,35 @@ def meta_model(
     ll_vac1 = gmsh.model.geo.addCurveLoop([l_vac1_f, l_vac1_r, l_vac1_b, l_vac1_l])
     s_source = gmsh.model.geo.addPlaneSurface([ll_vac1])
 
+    # Vertical edges connecting source plane to metasurface corners
+    v1_fl = gmsh.model.geo.addLine(p_vac1_fl, corner_points[0])
+    v1_fr = gmsh.model.geo.addLine(corner_points[1], p_vac1_fr)
+    v1_bl = gmsh.model.geo.addLine(p_vac1_bl, corner_points[2])
+    v1_br = gmsh.model.geo.addLine(corner_points[3], p_vac1_br)
+
+    # Front face analogous to substrate front face
+    ll_vac1_front = [-l_vac1_f, v1_fl] + front_edges + [v1_fr]
+    # s_vac1_front = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_vac1_front)])
+
+    # Back face analogous to substrate back face
+    ll_vac1_back = [l_vac1_b, v1_bl] + back_edges + [v1_br]
+    # s_vac1_back = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_vac1_back)])
+
+    # Left face analogous to substrate left face
+    ll_vac1_left = [v1_fl] + left_edges + [-v1_bl, -l_vac1_l]
+    # s_vac1_left = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_vac1_left)])
+
+    # Right face analogous to substrate right face
+    ll_vac1_right = [-l_vac1_r, -v1_fr] + right_edges + [v1_br]
+    # s_vac1_right = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_vac1_right)])
+
+    # Volume for first vacuum region: bounded below by metasurface (list_of_meta_surf) and above by source plane
+    # sl_vac1 = gmsh.model.geo.addSurfaceLoop([s_source, s_vac1_front, s_vac1_back, s_vac1_left, s_vac1_right] + list_of_meta_surf)
+    # vol_vac1 = gmsh.model.geo.addVolume([sl_vac1])
+
+
     # Create the absorber plane and second vacuum region
-    # ***********************************************
+    # **************************************************
     z_min = 0
     z_max = absorber_distance
 
@@ -384,38 +413,42 @@ def meta_model(
     # Synchronize the CAD kernel with the Gmsh model
     gmsh.model.geo.synchronize()
 
-    # Define periodic boundary conditions
     translation_x = [
-        1, 0, 0, 2*nx*wx, # translation along x
+        1, 0, 0, 2*nx*wx,
         0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1   
-    ]
-
-    gmsh.model.mesh.setPeriodic(2, [s_right], [s_left], translation_x)
-
-    translation_y = [
-        1, 0, 0, 0,
-        0, 1, 0, 2*ny*wy, # translation along y
         0, 0, 1, 0,
         0, 0, 0, 1
     ]
 
+    translation_y = [
+        1, 0, 0, 0,
+        0, 1, 0, 2*ny*wy,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    ]
+
+    # Set periodic constraints for substrate lateral faces
+    gmsh.model.mesh.setPeriodic(2, [s_right], [s_left], translation_x)
     gmsh.model.mesh.setPeriodic(2, [s_back], [s_front], translation_y)
+
+    # Set periodic constraints for vacuum region lateral faces
+    #gmsh.model.mesh.setPeriodic(2, [s_vac1_right], [s_vac1_left], translation_x)
+    # gmsh.model.mesh.setPeriodic(2, [s_vac1_back], [s_vac1_front], translation_y)
 
     # Return lists of entities for physical groups
     substrate = [s_bot, s_front, s_back, s_left, s_right, vol]
     metasurface = [black, white, corner_disks, x_edge_disks, y_edge_disks, inner_disks]
- 
-    vacuum = [s_source, s_absorber]
 
-    return substrate, metasurface, vacuum
+    vacuum1 = [s_source, ll_vac1_front, ll_vac1_back, ll_vac1_left, ll_vac1_right]
+    vacuum2 = [s_absorber]
+
+    return substrate, metasurface, vacuum1, vacuum2
 
 
 # Configuration parameters
 model_name = 'meta_surf'
-num_x = 3          # replication count in x
-num_y = 3          # replication count in y
+num_x = 10          # replication count in x
+num_y = 10          # replication count in y
 rect_x = 0.003     # rectangle dimension along x
 rect_y = 0.003     # rectangle dimension along y
 circle_r = 0.0005  # disk radius
@@ -425,16 +458,20 @@ hc = 5e-4          # mesh size at circular perimeter
 hb = 5e-3          # mesh size at bottom rectangle corner points
 substrate_thickness = 0.01
 source_distance = 0.06
-absorber_distance = 0.06
+absorber_distance = 0.12
 
 # Initialize Gmsh and create the model
 gmsh.initialize()
 gmsh.model.add(model_name)
 
 # Generate period and build substrate volume via geometric construction (no extrusion)
-substrate, metasurface, vacuum = meta_model(rect_x, rect_y, circle_r, 
-                                                    hx, hy, hc, hb, num_x, num_y,
-                                                    substrate_thickness)
+substrate, metasurface, vacuum1, vacuum2 = meta_model(
+    rect_x, rect_y, circle_r, 
+    hx, hy, hc, hb, num_x, num_y,
+    substrate_thickness,
+    source_distance,
+    absorber_distance
+)
 
 # Define physical groups for the metasurface components
 gmsh.model.addPhysicalGroup(2, metasurface[0], tag=1, name="black_rectangles")
@@ -455,9 +492,15 @@ gmsh.model.addPhysicalGroup(2, [substrate[3]], tag=5003, name="substrate_left")
 gmsh.model.addPhysicalGroup(2, [substrate[4]], tag=5004, name="substrate_right")
 gmsh.model.addPhysicalGroup(3, [substrate[5]], tag=6000, name="substrate_volume")
 
-# Define physical groups for the vacuum regions
-gmsh.model.addPhysicalGroup(2, [vacuum[0]], tag=20000, name="source_plane")
-gmsh.model.addPhysicalGroup(2, [vacuum[1]], tag=30000, name="absorber_plane")
+# Define physical groups for the vacuum1 region
+gmsh.model.addPhysicalGroup(2, [vacuum1[0]], tag=20000, name="source_plane")
+# gmsh.model.addPhysicalGroup(2, [vacuum1[1]], tag=20001, name="vacuum1_front")
+# gmsh.model.addPhysicalGroup(2, [vacuum1[2]], tag=20002, name="vacuum1_back")
+# gmsh.model.addPhysicalGroup(2, [vacuum1[3]], tag=20003, name="vacuum1_left")
+# gmsh.model.addPhysicalGroup(2, [vacuum1[4]], tag=20004, name="vacuum1_right")
+# gmsh.model.addPhysicalGroup(3, [vacuum1[5]], tag=25000, name="vacuum1_volume")
+
+gmsh.model.addPhysicalGroup(2, [vacuum2[0]], tag=30000, name="absorber_plane")
 
 # Set 2D meshing algorithm - 6 is frontal-Delaunay
 gmsh.option.setNumber("Mesh.Algorithm", 6)
@@ -465,9 +508,9 @@ gmsh.option.setNumber("Mesh.Algorithm", 6)
 gmsh.option.setNumber("Mesh.Algorithm3D", 4)
 
 # Enable mesh optimization
-gmsh.option.setNumber("Mesh.Optimize", 1)
+# gmsh.option.setNumber("Mesh.Optimize", 1)
 # Specifically enable Netgen optimization x3  
-gmsh.option.setNumber("Mesh.OptimizeNetgen", 3)  
+# gmsh.option.setNumber("Mesh.OptimizeNetgen", 3)  
 
 # Generate the mesh
 gmsh.model.mesh.generate()
