@@ -99,7 +99,7 @@ def sub_unit_cell(
     front = [l0, l8, l9, l2]
     right = [l3, l10, l11, l4]
     back = [l7, -l13, -l12, -l5]
-    left = [-l1, -l15, -l14, -l6]
+    left = [-l1, -l15, -l14, l6]
     edges = [front, right, back, left]
 
     # List of corner points
@@ -269,110 +269,107 @@ def meta_period(
         corner_points
     )
 
-"""
-def meta_model(wx, wy, r, hx, hy, hc, hb, nx, ny, thickness):
-    # Build metasurface period and gather outer chains
+# Funtion to create the full 3D model including the substrate volume
+def meta_model(
+        wx, # Width of the rectangles
+        wy, # Height of the rectangles
+        r,  # Radius of the circular regions
+        hx, # Mesh size at rectangle x edges
+        hy, # Mesh size at rectangle y edges
+        hc, # Mesh size at circular perimeter
+        hb, # Mesh size at bottom rectangle corner points
+        nx, # Number of rectangles in x direction
+        ny, # Number of rectangles in y direction
+        subst_t # Substrate thickness
+    ):
+
     (
-        black, white, corners, x_edge, y_edge, inner_array,
+        black, white, corner_disks, x_edge_disks, y_edge_disks, inner_disks,
         front_edges, right_edges, back_edges, left_edges,
+        corner_points
     ) = meta_period(wx, wy, r, hx, hy, hc, nx, ny)
 
-    # With known orientations: front (L->R), right (F->B), back (L->R), left (F->B)
-    # Get the top corner point tags from chain endpoints
-    fl_top, fr_top = chain_start_end(front_edges)
-    fr_top2, br_top = chain_start_end(right_edges)
-    bl_top, br_top2 = chain_start_end(back_edges)
-    fl_top2, bl_top2 = chain_start_end(left_edges)
+    # Remove duplicate entities
+    gmsh.model.geo.removeAllDuplicates()
 
-    # Use chains directly (no reorientation)
-    front_chain = front_edges
-    right_chain = right_edges
-    back_chain = back_edges
-    left_chain = left_edges
-
-    # Domain extents for bottom rectangle
-    x_min, x_max = -nx*wx, nx*wx
+    # Create bottom face
+    x_min, x_max = -nx*wx, nx*wx 
     y_min, y_max = -ny*wy, ny*wy
+    p_bfl = gmsh.model.geo.addPoint(x_min, y_min, -subst_t, hb)
+    p_bfr = gmsh.model.geo.addPoint(x_max, y_min, -subst_t, hb)
+    p_bbr = gmsh.model.geo.addPoint(x_max, y_max, -subst_t, hb)
+    p_bbl = gmsh.model.geo.addPoint(x_min, y_max, -subst_t, hb)
 
-    # Create bottom rectangle corner points (z = -thickness)
-    p_bl = gmsh.model.geo.addPoint(x_min, y_min, -thickness, hb)
-    p_br = gmsh.model.geo.addPoint(x_max, y_min, -thickness, hb)
-    p_tr = gmsh.model.geo.addPoint(x_max, y_max, -thickness, hb)
-    p_tl = gmsh.model.geo.addPoint(x_min, y_max, -thickness, hb)
+    l_bbf = gmsh.model.geo.addLine(p_bfr, p_bfl)
+    l_bbl = gmsh.model.geo.addLine(p_bfl, p_bbl)
+    l_bbb = gmsh.model.geo.addLine(p_bbl, p_bbr)
+    l_bbr = gmsh.model.geo.addLine(p_bbr, p_bfr)
 
-    # Bottom perimeter straight lines
-    e_bottom = gmsh.model.geo.addLine(p_bl, p_br)
-    e_right = gmsh.model.geo.addLine(p_br, p_tr)
-    e_top = gmsh.model.geo.addLine(p_tr, p_tl)
-    e_left = gmsh.model.geo.addLine(p_tl, p_bl)
+    ll_bot = gmsh.model.geo.addCurveLoop([l_bbf, l_bbl, l_bbb, l_bbr])
+    s_bot = gmsh.model.geo.addPlaneSurface([ll_bot])
 
-    # Create vertical corner edges from top endpoints to bottom corners
-    # If some endpoints are None (degenerate), skip side surface generation
-    v_fl = add_vertical(fl_top, p_bl)
-    v_fr = add_vertical(fr_top, p_br)
-    v_br = add_vertical(br_top, p_tr)
-    v_bl = add_vertical(bl_top, p_tl)
+    # Create front face
+    l_fl = gmsh.model.geo.addLine(p_bfl, corner_points[0])
+    l_fr = gmsh.model.geo.addLine(corner_points[1], p_bfr)
 
-    # Build side surfaces using curve loops: top chain + vertical + bottom edge (reversed) + vertical (reversed)
-    side_front = None
-    side_right = None
-    side_back = None
-    side_left = None
-    if all(v is not None for v in [v_fl, v_fr]):
-        loop_front = gmsh.model.geo.addCurveLoop(front_chain + [v_fr, -e_bottom, -v_fl])
-        side_front = gmsh.model.geo.addSurfaceFilling([loop_front])
-    if all(v is not None for v in [v_fr, v_br]):
-        loop_right = gmsh.model.geo.addCurveLoop(right_chain + [v_br, -e_right, -v_fr])
-        side_right = gmsh.model.geo.addSurfaceFilling([loop_right])
-    if all(v is not None for v in [v_bl, v_br]):
-        loop_back = gmsh.model.geo.addCurveLoop(back_chain + [v_br, e_top, -v_bl])
-        side_back = gmsh.model.geo.addSurfaceFilling([loop_back])
-    if all(v is not None for v in [v_fl, v_bl]):
-        loop_left = gmsh.model.geo.addCurveLoop(left_chain + [v_bl, e_left, -v_fl])
-        side_left = gmsh.model.geo.addSurfaceFilling([loop_left])
+    ll_front = [l_bbf, l_fl] + front_edges + [l_fr]
+    s_front = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_front)])
 
-    # Bottom surface
-    loop_bottom = gmsh.model.geo.addCurveLoop([e_bottom, e_right, e_top, e_left])
-    bottom_surface = gmsh.model.geo.addPlaneSurface([loop_bottom])
+    # Create back face
+    l_bl = gmsh.model.geo.addLine(p_bbl, corner_points[2])
+    l_br = gmsh.model.geo.addLine(corner_points[3], p_bbr)
 
-    # Collect all top surfaces to close the volume
-    top_surfaces = []
-    top_surfaces += black
-    top_surfaces += white
-    top_surfaces += corners
-    for arr in x_edge:
-        top_surfaces += arr
-    for arr in y_edge:
-        top_surfaces += arr
-    for arr in inner_array:
-        top_surfaces += arr
+    ll_back = [-l_bbb, l_bl] + back_edges + [l_br]
+    s_back = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_back)])
 
-    # Create volume from surface loop
-    shell_surfaces = [bottom_surface]
-    if side_front is not None:
-        shell_surfaces.append(side_front)
-    if side_right is not None:
-        shell_surfaces.append(side_right)
-    if side_back is not None:
-        shell_surfaces.append(side_back)
-    if side_left is not None:
-        shell_surfaces.append(side_left)
-    shell_surfaces += top_surfaces
+    # Create right face
+    ll_right = [l_bbr, -l_fr] + right_edges + [l_br]
+    s_right = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_right)])
 
-    sl = gmsh.model.geo.addSurfaceLoop(shell_surfaces)
-    vol = gmsh.model.geo.addVolume([sl])
+    # Create left face
+    ll_left = [l_fl] + left_edges + [-l_bl, -l_bbl]
+    s_left = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(ll_left)])
 
-    substrate = {
-        'volume': vol,
-        'bottom': bottom_surface,  # bottom plane at z = -thickness
-        'front': [side_front] if side_front is not None else [],  # y-min side
-        'back': [side_back] if side_back is not None else [],     # y-max side
-        'left': [side_left] if side_left is not None else [],
-        'right': [side_right] if side_right is not None else [],
-    }
+    # Create substrate volume
+    list_of_meta_surf = ( 
+        black + white + corner_disks 
+        + [item for sublist in x_edge_disks for item in sublist] 
+        +  [item for sublist in y_edge_disks for item in sublist] 
+        + [item for sublist in inner_disks for item in sublist] 
+    ) 
+    sl = gmsh.model.geo.addSurfaceLoop([s_bot, s_front, s_back, s_right, s_left] + list_of_meta_surf)
+    vol= gmsh.model.geo.addVolume([sl])
 
-    return black, white, corners, x_edge, y_edge, inner_array, substrate
-"""
+    # Synchronize the CAD kernel with the Gmsh model
+    gmsh.model.geo.synchronize()
+
+    # Define periodic boundary conditions
+    translation_x = [
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+        2*nx*wx, 0, 0   # translation vector
+    ]
+
+    gmsh.model.mesh.setPeriodic(2, [s_left], [s_right], translation_x)
+
+    translation_y = [
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+        0, 2*ny*wy, 0   # translation vector
+    ]
+
+    gmsh.model.mesh.setPeriodic(2, [s_front], [s_back], translation_y)
+
+    # Return lists of entities for physical groups
+    substrate = [s_bot, s_front, s_back, s_right, s_left, vol]
+    metasurface = [black, white, corner_disks, x_edge_disks, y_edge_disks, inner_disks]
+ 
+    vacuum = []
+
+    return substrate, metasurface, vacuum
+
 
 # Configuration parameters
 model_name = 'meta_surf'
@@ -394,42 +391,32 @@ gmsh.initialize()
 gmsh.model.add(model_name)
 
 # Generate period and build substrate volume via geometric construction (no extrusion)
-( black, white, corner_disks, x_edge_disks, y_edge_disks, inner_disks, 
-        front_edges, right_edges, back_edges, left_edges,
-        corner_points ) = meta_period(rect_x, rect_y, circle_r, hx, hy, hc, num_x, num_y)
-
-# Remove duplicate entities
-gmsh.model.geo.removeAllDuplicates()
-
-# Synchronize the CAD kernel with the Gmsh model
-gmsh.model.geo.synchronize()
+substrate, metasurface, vacuum = meta_model(rect_x, rect_y, circle_r, 
+                                                    hx, hy, hc, hb, num_x, num_y,
+                                                    substrate_thickness)
 
 # Define physical groups for the metasurface components
-gmsh.model.addPhysicalGroup(2, black, tag=1, name="black_rectangles")
-gmsh.model.addPhysicalGroup(2, white, tag=2, name="white_rectangles")
-gmsh.model.addPhysicalGroup(2, corner_disks, tag=10, name="corner_disks")
-for i, cut in enumerate(x_edge_disks): 
+gmsh.model.addPhysicalGroup(2, metasurface[0], tag=1, name="black_rectangles")
+gmsh.model.addPhysicalGroup(2, metasurface[1], tag=2, name="white_rectangles")
+gmsh.model.addPhysicalGroup(2, metasurface[2], tag=10, name="corner_disks")
+for i, cut in enumerate(metasurface[3]): 
     gmsh.model.addPhysicalGroup(2, cut, tag=100+i, name=f"x_edge_disk_{i}")
-for i, cut in enumerate(y_edge_disks): 
+for i, cut in enumerate(metasurface[4]):
     gmsh.model.addPhysicalGroup(2, cut, tag=200+i, name=f"y_edge_disk_{i}")
-for i, cut in enumerate(inner_disks):
+for i, cut in enumerate(metasurface[5]):
     gmsh.model.addPhysicalGroup(2, cut, tag=1000+i, name=f"inner_disk_{i}")
 
-"""
-# New physical groups for the substrate (renamed faces)
-if substrate.get('volume') is not None:
-    gmsh.model.addPhysicalGroup(3, [substrate['volume']], tag=5000, name="substrate")
-if substrate.get('bottom') is not None:
-    gmsh.model.addPhysicalGroup(2, [substrate['bottom']], tag=10000, name="substrate_bottom")
-if substrate.get('front'):
-    gmsh.model.addPhysicalGroup(2, substrate['front'], tag=20000, name="substrate_front")
-if substrate.get('back'):
-    gmsh.model.addPhysicalGroup(2, substrate['back'], tag=30000, name="substrate_back")
-if substrate.get('left'):
-    gmsh.model.addPhysicalGroup(2, substrate['left'], tag=40000, name="substrate_left")
-if substrate.get('right'):
-    gmsh.model.addPhysicalGroup(2, substrate['right'], tag=50000, name="substrate_right")
-"""
+# Define physical groups for the substrate
+gmsh.model.addPhysicalGroup(2, [substrate[0]], tag=5000, name="substrate_bottom")
+gmsh.model.addPhysicalGroup(2, [substrate[1]], tag=5001, name="substrate_front")
+
+# Set 2D meshing algorithm - 6 is frontal-Delaunay
+gmsh.option.setNumber("Mesh.Algorithm", 6)
+# Set 3D meshing algorithm - 4 is frontal
+gmsh.option.setNumber("Mesh.Algorithm3D", 4)
+
+# Generate the mesh
+gmsh.model.mesh.generate()
 
 # Display the generated metasurface
 gmsh.fltk.run()
