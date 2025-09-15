@@ -345,19 +345,19 @@ def meta_model(
 
     # Define periodic boundary conditions
     translation_x = [
-        1, 0, 0,
-        0, 1, 0,
-        0, 0, 1,
-        2*nx*wx, 0, 0   # translation vector
+        1, 0, 0, 2*nx*wx, # translation along x
+        0, 1, 0, 0,
+        0, 0, 1, 0
+        0, 0, 0, 1   
     ]
 
     gmsh.model.mesh.setPeriodic(2, [s_left], [s_right], translation_x)
 
     translation_y = [
-        1, 0, 0,
-        0, 1, 0,
-        0, 0, 1,
-        0, 2*ny*wy, 0   # translation vector
+        1, 0, 0, 0,
+        0, 1, 0, 2*ny*wy, # translation along y
+        0, 0, 1, 0,
+        0, 0, 0, 1
     ]
 
     gmsh.model.mesh.setPeriodic(2, [s_front], [s_back], translation_y)
