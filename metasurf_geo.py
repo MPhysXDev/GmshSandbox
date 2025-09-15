@@ -351,7 +351,7 @@ def meta_model(
         0, 0, 0, 1   
     ]
 
-    gmsh.model.mesh.setPeriodic(2, [s_left], [s_right], translation_x)
+    gmsh.model.mesh.setPeriodic(2, [s_right], [s_left], translation_x)
 
     translation_y = [
         1, 0, 0, 0,
@@ -360,7 +360,7 @@ def meta_model(
         0, 0, 0, 1
     ]
 
-    gmsh.model.mesh.setPeriodic(2, [s_front], [s_back], translation_y)
+    gmsh.model.mesh.setPeriodic(2, [s_back], [s_front], translation_y)
 
     # Return lists of entities for physical groups
     substrate = [s_bot, s_front, s_back, s_right, s_left, vol]
@@ -414,6 +414,11 @@ gmsh.model.addPhysicalGroup(2, [substrate[1]], tag=5001, name="substrate_front")
 gmsh.option.setNumber("Mesh.Algorithm", 6)
 # Set 3D meshing algorithm - 4 is frontal
 gmsh.option.setNumber("Mesh.Algorithm3D", 4)
+
+# Enable mesh optimization
+gmsh.option.setNumber("Mesh.Optimize", 1)
+# Specifically enable Netgen optimization x3  
+gmsh.option.setNumber("Mesh.OptimizeNetgen", 3)  
 
 # Generate the mesh
 gmsh.model.mesh.generate()
