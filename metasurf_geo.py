@@ -347,7 +347,7 @@ def meta_model(
     translation_x = [
         1, 0, 0, 2*nx*wx, # translation along x
         0, 1, 0, 0,
-        0, 0, 1, 0
+        0, 0, 1, 0,
         0, 0, 0, 1   
     ]
 
