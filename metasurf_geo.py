@@ -20,13 +20,13 @@ import gmsh
 
 # General parameters
 path_to_mesh = './'  # path to location to save the mesh file
-display_model = False  # Set to True to display the model in Gmsh GUI
+display_model = True  # Set to True to display the model in Gmsh GUI
 save_mesh = True  # Set to True to save the mesh to file
 
 # Model parameters
 model_name = 'meta_surf'
-num_x = 3          # replication count in x
-num_y = 3          # replication count in y
+num_x = 10          # replication count in x
+num_y = 10          # replication count in y
 rect_x = 0.003     # rectangle dimension along x
 rect_y = 0.003     # rectangle dimension along y
 circle_r = 0.0005  # disk cutout radius

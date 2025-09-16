@@ -1,0 +1,38 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.python-version
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Editors/IDE
+.vscode/
+.history/
+*.swp
+*.swo
+
+# Gmsh and mesh outputs
+*.msh
+*.mesh
+*.msh2
+*.msh4
+*.geo_unrolled
+
+# Logs and misc
+*.log
