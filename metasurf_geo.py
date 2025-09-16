@@ -528,11 +528,14 @@ def main():
     gmsh.model.addPhysicalGroup(2, metasurface[1], tag=2, name="white_rectangles")
     gmsh.model.addPhysicalGroup(2, metasurface[2], tag=10, name="corner_disks")
     for i, cut in enumerate(metasurface[3]): 
-        gmsh.model.addPhysicalGroup(2, cut, tag=100+i, name=f"x_edge_disk_{i}")
+        # gmsh.model.addPhysicalGroup(2, cut, tag=100+i, name=f"x_edge_disk_{i}")
+        gmsh.model.addPhysicalGroup(2, cut, tag=100, name=f"x_edge_disk_{i}")
     for i, cut in enumerate(metasurface[4]):
-        gmsh.model.addPhysicalGroup(2, cut, tag=200+i, name=f"y_edge_disk_{i}")
+        # gmsh.model.addPhysicalGroup(2, cut, tag=200+i, name=f"y_edge_disk_{i}")
+        gmsh.model.addPhysicalGroup(2, cut, tag=200, name=f"y_edge_disk_{i}")
     for i, cut in enumerate(metasurface[5]):
-        gmsh.model.addPhysicalGroup(2, cut, tag=1000+i, name=f"inner_disk_{i}")
+        # gmsh.model.addPhysicalGroup(2, cut, tag=1000+i, name=f"inner_disk_{i}")
+        gmsh.model.addPhysicalGroup(2, cut, tag=1000, name=f"inner_disk_{i}")
 
     # Define physical groups for the substrate
     gmsh.model.addPhysicalGroup(2, [substrate[0]], tag=5000, name="substrate_bottom")
