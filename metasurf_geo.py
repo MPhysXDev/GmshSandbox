@@ -15,11 +15,13 @@ A 3D mesh is generated for full-wave electromagnetic simulations.
 
 # Import necessary modules
 import sys
+import os
 import gmsh
 
 # General parameters
 path_to_mesh = './'  # path to location to save the mesh file
 display_model = False  # Set to True to display the model in Gmsh GUI
+save_mesh = True  # Set to True to save the mesh to file
 
 # Model parameters
 model_name = 'meta_surf'
@@ -573,8 +575,11 @@ def main():
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
     gmsh.option.setNumber("Mesh.Binary", 0)  # 0 = ASCII, 1 = Binary
 
-    # Save the mesh to file
-    gmsh.write(path_to_mesh + "metasurface.msh")
+    # Save the mesh to file (robust path handling: ~ expansion, relative paths, auto-create dir)
+    if save_mesh:
+        out_dir = os.path.abspath(os.path.expanduser(path_to_mesh))
+        os.makedirs(out_dir, exist_ok=True)
+        gmsh.write(os.path.join(out_dir, f"{model_name}.msh"))
 
     # Display the generated model if desired
     if display_model:
