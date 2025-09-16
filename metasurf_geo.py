@@ -5,7 +5,8 @@
 This script creates a chequerboard metasurface unit cell,
 and then a supercell by replicating the unit cell in x and y directions.
 The metasurface supercell is defined at the top surface of a substrate
-of given thickness, with a source plane at a certain distance above the metasurface.
+of given thickness, with a source plane at a certain distance above the metasurface,
+and an absorber plane at a further distance above the source plane.
 We use the native Gmsh kernel for the geometry definition.
 A 3D mesh is generated for full-wave electromagnetic simulations.
 """
@@ -274,15 +275,17 @@ def meta_model(
         wx, # Width of the rectangles
         wy, # Height of the rectangles
         r,  # Radius of the circular regions
+        nx, # Number of unit cells in x direction
+        ny, # Number of unit cells in y direction
+        subst_t, # Substrate thickness
+        source_distance, # Distance from metasurface to source plane
+        absorber_distance, # Distance from metasurface to absorber plane
         hx, # Mesh size at rectangle x edges
         hy, # Mesh size at rectangle y edges
         hc, # Mesh size at circular perimeter
         hb, # Mesh size at bottom rectangle corner points
-        nx, # Number of rectangles in x direction
-        ny, # Number of rectangles in y direction
-        subst_t, # Substrate thickness
-        source_distance, # Distance from metasurface to source plane
-        absorber_distance # Distance from metasurface to absorber plane
+        hs, # Mesh size at source plane corners
+        ha # Mesh size at absorber plane corners
     ):
 
     # Create one period of the metasurface
@@ -352,10 +355,10 @@ def meta_model(
     z_max = source_distance
 
     # Create the source plane
-    p_vac1_fl = gmsh.model.geo.addPoint(x_min, y_min, z_max, hb)
-    p_vac1_fr = gmsh.model.geo.addPoint(x_max, y_min, z_max, hb)
-    p_vac1_br = gmsh.model.geo.addPoint(x_max, y_max, z_max, hb)
-    p_vac1_bl = gmsh.model.geo.addPoint(x_min, y_max, z_max, hb)
+    p_vac1_fl = gmsh.model.geo.addPoint(x_min, y_min, z_max, hs)
+    p_vac1_fr = gmsh.model.geo.addPoint(x_max, y_min, z_max, hs)
+    p_vac1_br = gmsh.model.geo.addPoint(x_max, y_max, z_max, hs)
+    p_vac1_bl = gmsh.model.geo.addPoint(x_min, y_max, z_max, hs)
 
     l_vac1_f = gmsh.model.geo.addLine(p_vac1_fl, p_vac1_fr)
     l_vac1_r = gmsh.model.geo.addLine(p_vac1_fr, p_vac1_br)
@@ -391,17 +394,16 @@ def meta_model(
     # sl_vac1 = gmsh.model.geo.addSurfaceLoop([s_source, s_vac1_front, s_vac1_back, s_vac1_left, s_vac1_right] + list_of_meta_surf)
     # vol_vac1 = gmsh.model.geo.addVolume([sl_vac1])
 
-
     # Create the absorber plane and second vacuum region
     # **************************************************
     z_min = 0
     z_max = absorber_distance
 
     # Create the absorber plane
-    p_vac2_fl = gmsh.model.geo.addPoint(x_min, y_min, z_max, hb)    
-    p_vac2_fr = gmsh.model.geo.addPoint(x_max, y_min, z_max, hb)
-    p_vac2_br = gmsh.model.geo.addPoint(x_max, y_max, z_max, hb)
-    p_vac2_bl = gmsh.model.geo.addPoint(x_min, y_max, z_max, hb)
+    p_vac2_fl = gmsh.model.geo.addPoint(x_min, y_min, z_max, ha)
+    p_vac2_fr = gmsh.model.geo.addPoint(x_max, y_min, z_max, ha)
+    p_vac2_br = gmsh.model.geo.addPoint(x_max, y_max, z_max, ha)
+    p_vac2_bl = gmsh.model.geo.addPoint(x_min, y_max, z_max, ha)
 
     l_vac2_f = gmsh.model.geo.addLine(p_vac2_fl, p_vac2_fr)
     l_vac2_r = gmsh.model.geo.addLine(p_vac2_fr, p_vac2_br)
@@ -440,6 +442,10 @@ def meta_model(
     # Synchronize the CAD kernel with the Gmsh model
     gmsh.model.geo.synchronize()
 
+
+    # Periodic constraints
+    # ********************
+    # Define translation transformations for periodicity constraints
     translation_x = [
         1, 0, 0, 2*nx*wx,
         0, 1, 0, 0,
@@ -466,7 +472,9 @@ def meta_model(
     gmsh.model.mesh.setPeriodic(2, [s_vac2_right], [s_vac2_left], translation_x)
     gmsh.model.mesh.setPeriodic(2, [s_vac2_back], [s_vac2_front], translation_y)
 
-    # Return lists of entities for physical groups
+
+    # Return lists of geometric entities for physical group assignments
+    # *****************************************************************
     substrate = [s_bot, s_front, s_back, s_left, s_right, subst_vol]
     metasurface = [black, white, corner_disks, x_edge_disks, y_edge_disks, inner_disks]
 
@@ -486,7 +494,9 @@ circle_r = 0.0005  # disk radius
 hx = 1e-3          # mesh size at rectangle x edges
 hy = 1e-3          # mesh size at rectangle y edges
 hc = 5e-4          # mesh size at circular perimeter
-hb = 5e-3          # mesh size at bottom rectangle corner points
+hb = 5e-3          # mesh size at substrate bottom corners
+hs = 5e-3          # mesh size at source plane corners
+ha = 5e-3          # mesh size at absorber plane corners
 substrate_thickness = 0.01
 source_distance = 0.06
 absorber_distance = 0.12
@@ -495,13 +505,14 @@ absorber_distance = 0.12
 gmsh.initialize()
 gmsh.model.add(model_name)
 
-# Generate period and build substrate volume via geometric construction (no extrusion)
+# Generate the model via geometric bottom-up construction
 substrate, metasurface, vacuum1, vacuum2 = meta_model(
     rect_x, rect_y, circle_r, 
-    hx, hy, hc, hb, num_x, num_y,
+    num_x, num_y,
     substrate_thickness,
     source_distance,
-    absorber_distance
+    absorber_distance,
+    hx, hy, hc, hb, hs, ha 
 )
 
 # Define physical groups for the metasurface components
