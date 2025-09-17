@@ -19,26 +19,27 @@ import os
 import gmsh
 
 # General parameters
-path_to_mesh = './'  # path to location to save the mesh file
-display_model = True  # Set to True to display the model in Gmsh GUI
+# Save mesh directly into the Palace test case folder for convenience
+path_to_mesh = '/home/ubuntu/palace/sandbox/metasurfaces/test0'  # absolute path to save the mesh file
+display_model = True  # Set to False for headless runs (no GUI)
 save_mesh = True  # Set to True to save the mesh to file
 
 # Model parameters
 model_name = 'meta_surf'
-num_x = 10          # replication count in x
-num_y = 10          # replication count in y
-rect_x = 0.003     # rectangle dimension along x
-rect_y = 0.003     # rectangle dimension along y
-circle_r = 0.0005  # disk cutout radius
-hx = 1e-3          # mesh size at rectangle x edges
-hy = 1e-3          # mesh size at rectangle y edges
-hc = 5e-4          # mesh size at circular cutout perimeters
-hb = 5e-3          # mesh size at substrate bottom corners
-hs = 5e-3          # mesh size at source plane corners
-ha = 5e-3          # mesh size at absorber plane corners
-substrate_thickness = 0.01
-source_distance = 0.06      # distance from metasurface to source plane
-absorber_distance = 0.12    # distance from metasurface to absorber plane
+num_x = 5          # replication count in x
+num_y = 5          # replication count in y
+rect_x = 3.     # rectangle dimension along x
+rect_y = 3.     # rectangle dimension along y
+circle_r = 0.5  # disk cutout radius
+hx = 1.0          # mesh size at rectangle x edges
+hy = 1.0          # mesh size at rectangle y edges
+hc = 0.5          # mesh size at circular cutout perimeters
+hb = 2.0          # mesh size at substrate bottom corners
+hs = 5.0          # mesh size at source plane corners
+ha = 5.0          # mesh size at absorber plane corners
+substrate_thickness = 10.0
+source_distance = 60.0      # distance from metasurface to source plane
+absorber_distance = 120.0    # distance from metasurface to absorber plane
 
 # Function to create a sub-unit cell with one rectangle and 
 # arc-circle cutouts at each corner
@@ -523,6 +524,9 @@ def main():
         hx, hy, hc, hb, hs, ha 
     )
 
+    # Synchronize the CAD kernel with the Gmsh model
+    gmsh.model.geo.synchronize()
+    
     # Define physical groups for the metasurface components
     gmsh.model.addPhysicalGroup(2, metasurface[0], tag=1, name="black_rectangles")
     gmsh.model.addPhysicalGroup(2, metasurface[1], tag=2, name="white_rectangles")
@@ -541,44 +545,48 @@ def main():
         inner_disks += cut
     gmsh.model.addPhysicalGroup(2, inner_disks, tag=1000, name="inner_disks")
 
+    # Define physical groups for periodic boundary faces
+    gmsh.model.addPhysicalGroup(2, [substrate[1],
+                                     vacuum1[1], 
+                                     vacuum2[1]], tag=5001, name="periodic_front")
+    gmsh.model.addPhysicalGroup(2, [substrate[2],
+                                     vacuum1[2], 
+                                     vacuum2[2]], tag=5002, name="periodic_back")
+    gmsh.model.addPhysicalGroup(2, [substrate[3],
+                                     vacuum1[3], 
+                                     vacuum2[3]], tag=5003, name="periodic_left")
+    gmsh.model.addPhysicalGroup(2, [substrate[4],
+                                     vacuum1[4], 
+                                     vacuum2[4]], tag=5004, name="periodic_right")
+
     # Define physical groups for the substrate
     gmsh.model.addPhysicalGroup(2, [substrate[0]], tag=5000, name="substrate_bottom")
-    gmsh.model.addPhysicalGroup(2, [substrate[1]], tag=5001, name="substrate_front")
-    gmsh.model.addPhysicalGroup(2, [substrate[2]], tag=5002, name="substrate_back")
-    gmsh.model.addPhysicalGroup(2, [substrate[3]], tag=5003, name="substrate_left")
-    gmsh.model.addPhysicalGroup(2, [substrate[4]], tag=5004, name="substrate_right")
     gmsh.model.addPhysicalGroup(3, [substrate[5]], tag=6000, name="substrate_volume")
 
     # Define physical groups for the vacuum1 region
     gmsh.model.addPhysicalGroup(2, [vacuum1[0]], tag=20000, name="source_plane")
-    gmsh.model.addPhysicalGroup(2, [vacuum1[1]], tag=20001, name="vacuum1_front")
-    gmsh.model.addPhysicalGroup(2, [vacuum1[2]], tag=20002, name="vacuum1_back")
-    gmsh.model.addPhysicalGroup(2, [vacuum1[3]], tag=20003, name="vacuum1_left")
-    gmsh.model.addPhysicalGroup(2, [vacuum1[4]], tag=20004, name="vacuum1_right")
     gmsh.model.addPhysicalGroup(3, [vacuum1[5]], tag=21000, name="vacuum1_volume")
 
     # Define physical groups for the vacuum2 region
     gmsh.model.addPhysicalGroup(2, [vacuum2[0]], tag=30000, name="absorber_plane")
-    gmsh.model.addPhysicalGroup(2, [vacuum2[1]], tag=30001, name="vacuum2_front")
-    gmsh.model.addPhysicalGroup(2, [vacuum2[2]], tag=30002, name="vacuum2_back")
-    gmsh.model.addPhysicalGroup(2, [vacuum2[3]], tag=30003, name="vacuum2_left")
-    gmsh.model.addPhysicalGroup(2, [vacuum2[4]], tag=30004, name="vacuum2_right")
     gmsh.model.addPhysicalGroup(3, [vacuum2[5]], tag=31000, name="vacuum2_volume")
+
+    # Synchronize the CAD kernel with the Gmsh model
+    gmsh.model.geo.synchronize()
 
     # Set 2D meshing algorithm - 6 is frontal-Delaunay
     gmsh.option.setNumber("Mesh.Algorithm", 6)
     # Set 3D meshing algorithm - 4 is frontal
     gmsh.option.setNumber("Mesh.Algorithm3D", 4)
 
-    # Enable mesh optimization
-    gmsh.option.setNumber("Mesh.Optimize", 1)
-    # Specifically enable Netgen optimization x3  
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 3)  
+    # Disable mesh optimization to preserve exact periodic node positions
+    gmsh.option.setNumber("Mesh.Optimize", 0)
+    gmsh.option.setNumber("Mesh.OptimizeNetgen", 0)
 
     # Generate the mesh
     gmsh.model.mesh.generate()
 
-    # Set mesh format to MSH 2.2 (ASCII)
+    # Set mesh format to MSH 2.2 (ASCII) to ensure compatibility with Palace/MFEM
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
     gmsh.option.setNumber("Mesh.Binary", 0)  # 0 = ASCII, 1 = Binary
 
