@@ -17,15 +17,15 @@ import gmsh
 # General parameters
 # Save mesh directly into the Palace test case folder for convenience
 path_to_mesh = '/home/ubuntu/palace/sandbox/metasurfaces/test1'  # absolute path to save the mesh file
-display_model = True  # Set to False for headless runs (no GUI)
-save_mesh = False  # Set to True to save the mesh to file
+display_model = False  # Set to False for headless runs (no GUI)
+save_mesh = True  # Set to True to save the mesh to file
 
 # Model parameters
-model_name = 'source_alone'  # name of the model and mesh file
+model_name = 'source_alone_v2'  # name of the model and mesh file
 size_x = 60.     # rectangle dimension along x
 size_y = 60.     # rectangle dimension along y
 h = 5.0          # mesh size at absorber plane corners
-absorber_distance = 60.0    # distance from source to absorber plane
+absorber_distance = 75.0    # distance from source to absorber plane
 
 
 # Funtion to create the full 3D model
@@ -248,7 +248,7 @@ def main():
     gmsh.finalize()
 
     # Return model data
-    return [substrate, metasurface, vacuum1, vacuum2]
+    return 0
 
 if __name__ == "__main__":
     model_data = main()
