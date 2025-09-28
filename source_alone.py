@@ -21,11 +21,11 @@ display_model = False  # Set to False for headless runs (no GUI)
 save_mesh = True  # Set to True to save the mesh to file
 
 # Model parameters
-model_name = 'source_alone_v2'  # name of the model and mesh file
+model_name = 'source_in_vacuum'  # name of the model and mesh file
 size_x = 60.     # rectangle dimension along x
 size_y = 60.     # rectangle dimension along y
 h = 5.0          # mesh size at absorber plane corners
-absorber_distance = 75.0    # distance from source to absorber plane
+absorber_distance = 60.0    # distance from source to absorber plane
 
 
 # Funtion to create the full 3D model
